@@ -1,0 +1,9 @@
+# Only these application files can enter the build context.
+*
+!Dockerfile
+!docker-entrypoint.sh
+!server.js
+!start-window.sh
+!codex-crontab
+!public/
+!public/index.html

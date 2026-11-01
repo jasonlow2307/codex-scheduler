@@ -1,0 +1,14 @@
+services:
+  scheduler:
+    build: .
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - scheduler-data:/var/lib/scheduler
+      - codex-auth:/root/.codex
+
+volumes:
+  scheduler-data:
+  codex-auth:

@@ -1,0 +1,6 @@
+CRON_TZ=Asia/Kuala_Lumpur
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HOME=/root
+
+# Start usage windows at 06:00, 11:00, and 16:00 on weekdays
+0 6,11,16 * * 1-5 /workspace/start-window.sh >> /workspace/codex-5am.log 2>&1

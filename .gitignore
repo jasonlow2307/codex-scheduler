@@ -10,3 +10,9 @@ node_modules/
 *.log
 .DS_Store
 coverage/
+
+# Runtime authentication and usage data
+.codex/
+auth.json
+credentials.json
+*usage-history*.csv

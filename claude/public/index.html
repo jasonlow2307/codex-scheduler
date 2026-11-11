@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Haiku Window Scheduler</title>
+<style>
+:root{
+  --bg:#09090b;
+  --panel:#111114;
+  --panel-2:#17171b;
+  --border:#27272a;
+  --muted:#8b8b95;
+  --text:#f7f7f8;
+  --accent:#8b5cf6;
+  --accent-2:#22d3ee;
+  --success:#22c55e;
+  --danger:#ef4444;
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  min-height:100vh;
+  color:var(--text);
+  background:
+    radial-gradient(circle at 15% 10%, rgba(139,92,246,.16), transparent 32%),
+    radial-gradient(circle at 85% 15%, rgba(34,211,238,.10), transparent 30%),
+    var(--bg);
+}
+button,input{font:inherit}
+.app{
+  width:min(1100px,calc(100% - 32px));
+  margin:0 auto;
+  padding:42px 0 60px;
+}
+.topbar{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:24px;
+  margin-bottom:26px;
+}
+.brand h1{
+  font-size:30px;
+  line-height:1.05;
+  margin:0 0 8px;
+  letter-spacing:-.04em;
+}
+.brand p{
+  margin:0;
+  color:var(--muted);
+  font-size:14px;
+}
+.badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 12px;
+  border:1px solid var(--border);
+  border-radius:999px;
+  background:rgba(255,255,255,.025);
+  color:#d4d4d8;
+  font-size:13px;
+  white-space:nowrap;
+}
+.dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--success);
+  box-shadow:0 0 0 4px rgba(34,197,94,.10);
+}
+.panel{
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.018));
+  border:1px solid var(--border);
+  border-radius:22px;
+  padding:24px;
+  box-shadow:0 24px 70px rgba(0,0,0,.25);
+  backdrop-filter:blur(16px);
+}
+.panel-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:22px;
+}
+.panel-title h2{
+  margin:0 0 6px;
+  font-size:17px;
+  letter-spacing:-.02em;
+}
+.panel-title p{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+}
+.reset{
+  border:1px solid var(--border);
+  background:#151519;
+  color:#d4d4d8;
+  border-radius:10px;
+  padding:9px 12px;
+  cursor:pointer;
+}
+.reset:hover{background:#1c1c21}
+.timeline-wrap{
+  position:relative;
+  padding:12px 0 0;
+}
+.ruler{
+  position:relative;
+  height:28px;
+  margin:0 10px;
+  color:#71717a;
+  font-size:11px;
+  user-select:none;
+}
+.ruler span{
+  position:absolute;
+  transform:translateX(-50%);
+}
+.ruler span:first-child{transform:none}
+.ruler span:last-child{transform:translateX(-100%)}
+.track{
+  position:relative;
+  height:190px;
+  margin:0 10px;
+  border:1px solid #25252a;
+  border-radius:16px;
+  overflow:hidden;
+  background:
+    linear-gradient(to right,rgba(255,255,255,.045) 1px,transparent 1px),
+    linear-gradient(180deg,#131317,#101014);
+  background-size:calc(100% / 24) 100%,100% 100%;
+}
+.work-hours{
+  position:absolute;
+  top:0;bottom:0;
+  left:35.4167%;
+  width:37.5%;
+  background:rgba(255,255,255,.025);
+  border-left:1px dashed rgba(255,255,255,.10);
+  border-right:1px dashed rgba(255,255,255,.10);
+  pointer-events:none;
+}
+.work-label{
+  position:absolute;
+  top:10px;
+  left:calc(35.4167% + 10px);
+  color:#6b6b75;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  pointer-events:none;
+}
+.window{
+  position:absolute;
+  height:44px;
+  border-radius:13px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:0 13px;
+  cursor:grab;
+  user-select:none;
+  touch-action:none;
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:0 8px 24px rgba(0,0,0,.20);
+  transition:box-shadow .18s ease,transform .18s ease,filter .18s ease;
+}
+.window:active{
+  cursor:grabbing;
+  transform:scale(1.01);
+  filter:brightness(1.08);
+  box-shadow:0 16px 34px rgba(0,0,0,.28);
+}
+.window[data-i="0"]{
+  top:38px;
+  background:linear-gradient(90deg,rgba(139,92,246,.90),rgba(124,58,237,.72));
+}
+.window[data-i="1"]{
+  top:91px;
+  background:linear-gradient(90deg,rgba(14,165,233,.88),rgba(6,182,212,.70));
+}
+.window[data-i="2"]{
+  top:144px;
+  background:linear-gradient(90deg,rgba(16,185,129,.86),rgba(34,197,94,.68));
+}
+.window strong{
+  font-size:13px;
+  letter-spacing:-.01em;
+}
+.window small{
+  font-size:11px;
+  opacity:.80;
+  white-space:nowrap;
+}
+.drag-grip{
+  opacity:.55;
+  font-size:15px;
+  letter-spacing:1px;
+}
+.summary{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  margin-top:18px;
+}
+.card{
+  border:1px solid var(--border);
+  background:#121216;
+  border-radius:14px;
+  padding:14px 15px;
+}
+.card .label{
+  color:var(--muted);
+  font-size:11px;
+  margin-bottom:6px;
+}
+.card .time{
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:-.03em;
+}
+.card .sub{
+  color:#7c7c86;
+  font-size:11px;
+  margin-top:3px;
+}
+.actions{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-top:20px;
+}
+.save{
+  flex:1;
+  border:0;
+  color:white;
+  background:linear-gradient(90deg,#7c3aed,#8b5cf6);
+  border-radius:12px;
+  padding:13px 16px;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:0 10px 28px rgba(124,58,237,.22);
+}
+.save:hover{filter:brightness(1.08)}
+.save:disabled{opacity:.55;cursor:wait;filter:none}
+.status{
+  min-width:170px;
+  text-align:right;
+  color:var(--muted);
+  font-size:13px;
+}
+.status.ok{color:#4ade80}
+.status.bad{color:#f87171}
+.legend{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  margin-top:14px;
+  color:#666672;
+  font-size:11px;
+}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{width:9px;height:9px;border-radius:3px;background:#25252b;display:inline-block}
+@media(max-width:720px){
+  .app{width:min(100% - 20px,1100px);padding-top:22px}
+  .topbar{align-items:flex-start;flex-direction:column}
+  .panel{padding:17px;border-radius:18px}
+  .panel-header{align-items:flex-start}
+  .summary{grid-template-columns:1fr}
+  .actions{flex-direction:column}
+  .status{min-width:0;width:100%;text-align:center}
+  .track{height:210px}
+  .window[data-i="0"]{top:46px}
+  .window[data-i="1"]{top:104px}
+  .window[data-i="2"]{top:162px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <h1>Haiku Window Scheduler</h1>
+      <p>Plan scheduled Claude Haiku 5.5 sessions.</p>
+    </div>
+    <div class="badge"><span class="dot"></span> Scheduler online</div>
+  </div>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <h2>Weekday window plan</h2>
+        <p>Monday–Friday · Asia/Kuala_Lumpur · Haiku 5.5 / low · drag to snap by hour</p>
+      </div>
+      <button class="reset" id="reset">Reset</button>
+    </div>
+
+    <div class="timeline-wrap">
+      <div class="ruler" id="ruler"></div>
+
+      <div class="track" id="track">
+        <div class="work-hours"></div>
+        <div class="work-label">work hours 08:30–17:30</div>
+
+        <div class="window" data-i="0">
+          <div>
+            <strong>Window 1</strong>
+            <small class="range"></small>
+          </div>
+          <span class="drag-grip">⠿</span>
+        </div>
+
+        <div class="window" data-i="1">
+          <div>
+            <strong>Window 2</strong>
+            <small class="range"></small>
+          </div>
+          <span class="drag-grip">⠿</span>
+        </div>
+
+        <div class="window" data-i="2">
+          <div>
+            <strong>Window 3</strong>
+            <small class="range"></small>
+          </div>
+          <span class="drag-grip">⠿</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="actions">
+      <button class="save" id="save">Save schedule</button>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="legend">
+      <span><i></i> Shaded area = workday</span>
+      <span>Each block = 5 hours · actual reset depends on existing account activity</span>
+    </div>
+  </section>
+</div>
+
+<script>
+const track = document.querySelector("#track");
+const windows = [...document.querySelectorAll(".window")];
+const summary = document.querySelector("#summary");
+const save = document.querySelector("#save");
+const reset = document.querySelector("#reset");
+const status = document.querySelector("#status");
+const ruler = document.querySelector("#ruler");
+
+let hours = [6,11,16];
+let loadedHours = [...hours];
+
+for (let h=0; h<=24; h+=3) {
+  const s=document.createElement("span");
+  s.textContent=String(h).padStart(2,"0")+":00";
+  s.style.left=(h/24*100)+"%";
+  ruler.appendChild(s);
+}
+
+function fmt(h){
+  h=((h%24)+24)%24;
+  return String(h).padStart(2,"0")+":00";
+}
+
+function render(){
+  windows.forEach((el,i)=>{
+    const start=hours[i];
+    const width=5/24*100;
+    const left=start/24*100;
+    el.style.left=left+"%";
+    el.style.width=width+"%";
+    el.querySelector(".range").textContent=`${fmt(start)} → ${fmt(start+5)}`;
+  });
+
+  summary.innerHTML=hours.map((h,i)=>`
+    <div class="card">
+      <div class="label">WINDOW ${i+1}</div>
+      <div class="time">${fmt(h)}</div>
+      <div class="sub">resets ${fmt(h+5)}</div>
+    </div>
+  `).join("");
+}
+
+function setStatus(msg,type=""){
+  status.textContent=msg;
+  status.className="status "+type;
+}
+
+windows.forEach((el,i)=>{
+  let dragging=false;
+
+  el.addEventListener("pointerdown",e=>{
+    dragging=true;
+    el.setPointerCapture(e.pointerId);
+  });
+
+  el.addEventListener("pointermove",e=>{
+    if(!dragging) return;
+
+    const rect=track.getBoundingClientRect();
+    const x=Math.max(0,Math.min(rect.width,e.clientX-rect.left));
+    let hour=Math.round((x/rect.width)*24 - 2.5);
+
+    hour=Math.max(0,Math.min(19,hour));
+    hours[i]=hour;
+    render();
+    setStatus("Unsaved changes");
+  });
+
+  const end=e=>{
+    dragging=false;
+    try{el.releasePointerCapture(e.pointerId)}catch{}
+  };
+
+  el.addEventListener("pointerup",end);
+  el.addEventListener("pointercancel",end);
+});
+
+reset.onclick=()=>{
+  hours=[...loadedHours];
+  render();
+  setStatus("");
+};
+
+save.onclick=async()=>{
+  const sorted=[...hours].sort((a,b)=>a-b);
+
+  if(new Set(sorted).size!==sorted.length){
+    setStatus("Windows cannot start at the same hour","bad");
+    return;
+  }
+
+  save.disabled=true;
+  setStatus("Saving…");
+
+  try{
+    const r=await fetch("/api/schedule",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({hours:sorted})
+    });
+
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error || "Failed to save");
+
+    hours=[...d.hours];
+    loadedHours=[...d.hours];
+    render();
+    setStatus("Schedule updated","ok");
+  }catch(e){
+    setStatus(e.message,"bad");
+  }finally{
+    save.disabled=false;
+  }
+};
+
+async function load(){
+  try{
+    const r=await fetch("/api/schedule");
+    const d=await r.json();
+
+    if(!r.ok) throw new Error(d.error || "Failed to load schedule");
+    if(!Array.isArray(d.windowHours) || d.windowHours.length!==3){
+      throw new Error("Expected 3 configured windows");
+    }
+
+    hours=[...d.windowHours];
+    loadedHours=[...d.windowHours];
+    render();
+  }catch(e){
+    setStatus(e.message,"bad");
+    render();
+  }
+}
+
+render();
+load();
+</script>
+</body>
+</html>

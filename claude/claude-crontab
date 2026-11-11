@@ -1,0 +1,8 @@
+CRON_TZ=Asia/Kuala_Lumpur
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+HOME=/root
+CLAUDE_CONFIG_DIR=/root/.claude
+DISABLE_AUTOUPDATER=1
+
+# Claude Haiku 5.5 / low. Independent from Codex usage and schedule.
+0 6,11,16 * * 1-5 /bin/bash /workspace/start-claude-window.sh >> /var/lib/scheduler/claude-window.log 2>&1

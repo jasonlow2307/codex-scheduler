@@ -7,6 +7,10 @@ A small, dependency-free Node.js interface for managing three weekday usage wind
 - Save/reset controls, loading feedback, and retry support
 - Kuala Lumpur time (UTC+8) displayed in the interface
 
+## Claude Haiku 5.5 scheduler
+
+The [Claude scheduler](claude/README.md) runs on port 3001 as a separate Compose project. It has its own schedule and Claude login.
+
 ## Run with Docker Compose
 
 Requirements: Docker Engine (or Docker Desktop), Docker Compose v2, internet access for the build and scheduled requests, and an account that can use the model configured in `start-window.sh` (`gpt-6-luna`). Keep the container and its host running for scheduled jobs to execute.

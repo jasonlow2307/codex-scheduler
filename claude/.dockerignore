@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!docker-entrypoint.sh
+!server.js
+!start-claude-window.sh
+!claude-crontab
+!public/
+!public/index.html

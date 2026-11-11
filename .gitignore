@@ -13,6 +13,10 @@ coverage/
 
 # Runtime authentication and usage data
 .codex/
+.claude/
+.claude.json
+.claude.json.*
+.credentials.json
 auth.json
 credentials.json
 *usage-history*.csv
